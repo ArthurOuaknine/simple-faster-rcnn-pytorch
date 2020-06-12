@@ -1,0 +1,53 @@
+"""Class to load the CARRADA dataset"""
+import os
+import json
+from radar_utils.configurable import Configurable
+from radar_utils import download, RADAR_HOME
+
+class Carrada(Configurable):
+    """Class to load CARRADA dataset"""
+
+    def __init__(self, config_path):
+        super().__init__(config_path)
+        self.warehouse = self.config['data']['warehouse']
+        self.carrada = download('Carrada', fallback=os.path.join(self.warehouse, 'Carrada'))
+        self.annotations = self._load_selected_light_frame_oriented()
+        self.data_seq_ref = self._load_data_seq_ref()
+        self.train = dict()
+        self.validation = dict()
+        self.test = dict()
+        self._split()
+
+    def _load_data_seq_ref(self):
+        path = os.path.join(self.carrada, 'data_seq_ref.json')
+        with open(path, 'r') as fp:
+            data_seq_ref = json.load(fp)
+        return data_seq_ref
+
+    def _load_selected_light_frame_oriented(self):
+        path = os.path.join(self.carrada, 'selected_light_dataset_frame_oriented.json')
+        with open(path, 'r') as fp:
+            annotations = json.load(fp)
+        return annotations
+
+    def _split(self):
+        for sequence in self.annotations.keys():
+            split = self.data_seq_ref[sequence]['split']
+            if split == 'Train':
+                self.train[sequence] = self.annotations[sequence]
+            elif split == 'Validation':
+                self.validation[sequence] = self.annotations[sequence]
+            elif split == 'Test':
+                self.test[sequence] = self.annotations[sequence]
+            else:
+                raise TypeError('Type {} is not supported for splits.'.format(split))
+
+    def get(self, split):
+        if split == 'Train':
+            return self.train
+        if split == 'Validation':
+            return self.validation
+        if split == 'Test':
+            return self.test
+        raise TypeError('Type {} is not supported for splits.'.format(split))
+

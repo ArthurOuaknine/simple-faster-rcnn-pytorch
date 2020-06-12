@@ -8,13 +8,16 @@ import matplotlib
 from tqdm import tqdm
 
 from utils.config import opt
-from data.dataset import Dataset, TestDataset, inverse_normalize
+# from data.dataset import Dataset, TestDataset, inverse_normalize
+from data.dataset import CarradaDataset, inverse_normalize
 from model import FasterRCNNVGG16
 from torch.utils import data as data_
 from trainer import FasterRCNNTrainer
 from utils import array_tool as at
 from utils.vis_tool import visdom_bbox
 from utils.eval_tool import eval_detection_voc
+
+from radar_utils import download
 
 # fix for ulimit
 # https://github.com/pytorch/pytorch/issues/973#issuecomment-346405667
@@ -50,32 +53,40 @@ def eval(dataloader, faster_rcnn, test_num=10000):
 def train(**kwargs):
     opt._parse(kwargs)
 
-    dataset = Dataset(opt)
+    carrada = download('Carrada')
+    seq_name = '2020-02-28-13-13-43'
+    path_to_frames = os.path.join(carrada, seq_name)
+
+    # dataset = Dataset(opt)
+    dataset = CarradaDataset(seq_name, 'Train', 'box', 'range_angle', path_to_frames)
     print('load data')
     dataloader = data_.DataLoader(dataset, \
                                   batch_size=1, \
                                   shuffle=True, \
                                   # pin_memory=True,
                                   num_workers=opt.num_workers)
-    testset = TestDataset(opt)
-    test_dataloader = data_.DataLoader(testset,
-                                       batch_size=1,
-                                       num_workers=opt.test_num_workers,
-                                       shuffle=False, \
-                                       pin_memory=True
-                                       )
+    # testset = TestDataset(opt)
+    # TESTER TO DEFINE
+    # testset = CarradaDataset(seq_name, 'Test', 'box', 'range_angle', path_to_frames)
+    # test_dataloader = data_.DataLoader(testset,
+    #                                    batch_size=1,
+    #                                    num_workers=opt.test_num_workers,
+    #                                    shuffle=False, \
+    #                                    pin_memory=True
+    #                                    )
     faster_rcnn = FasterRCNNVGG16()
     print('model construct completed')
     trainer = FasterRCNNTrainer(faster_rcnn).cuda()
     if opt.load_path:
         trainer.load(opt.load_path)
         print('load pretrained model from %s' % opt.load_path)
-    trainer.vis.text(dataset.db.label_names, win='labels')
+    # trainer.vis.text(dataset.db.label_names, win='labels')
     best_map = 0
     lr_ = opt.lr
     for epoch in range(opt.epoch):
         trainer.reset_meters()
         for ii, (img, bbox_, label_, scale) in tqdm(enumerate(dataloader)):
+            import ipdb; ipdb.set_trace()
             scale = at.scalar(scale)
             img, bbox, label = img.cuda().float(), bbox_.cuda(), label_.cuda()
             trainer.train_step(img, bbox, label, scale)

@@ -1,7 +1,11 @@
 from __future__ import  absolute_import
 from __future__ import  division
+import os
+import json
 import torch as t
 from data.voc_dataset import VOCBboxDataset
+from data.carrada_dataset import Carrada
+from torch.utils.data import Dataset
 from skimage import transform as sktsf
 from torchvision import transforms as tvtsf
 from data import util
@@ -97,6 +101,7 @@ class Transform(object):
         return img, bbox, label, scale
 
 
+"""
 class Dataset:
     def __init__(self, opt):
         self.opt = opt
@@ -113,6 +118,7 @@ class Dataset:
 
     def __len__(self):
         return len(self.db)
+"""
 
 
 class TestDataset:
@@ -127,3 +133,73 @@ class TestDataset:
 
     def __len__(self):
         return len(self.db)
+
+class CarradaDataset(Dataset):
+    """DataLoader class for Carrada sequences
+    Load frames
+    """
+
+    RD_SHAPE = (256, 64)
+    RA_SHAPE = (256, 256)
+    NB_CLASSES = 4
+
+    def __init__(self, seq_name, split, annotation_type, signal_type, path_to_frames):
+        self.cls = self.__class__
+        self.dataset = Carrada().get(split)
+        print(self.dataset.keys())
+        self.dataset = self.dataset['2020-02-28-13-13-43']
+        self.annotation_type = annotation_type
+        self.signal_type = signal_type
+        self.path_to_frames = path_to_frames
+        self.path_to_annots = os.path.join(self.path_to_frames, 'annotations',
+                                           self.annotation_type,
+                                           self.signal_type + '_light.json')
+        with open(self.path_to_annots, 'r') as fp:
+            self.annots = json.load(fp)
+
+    def __len__(self):
+        """Number of frames per sequence"""
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        frame_name = self.dataset[idx]
+        if self.signal_type == 'range_doppler':
+            matrix = np.load(os.path.join(self.path_to_frames, 'range_doppler_numpy',
+                                          frame_name + '.npy'))
+        elif self.signal_type == 'range_angle':
+            matrix = np.load(os.path.join(self.path_to_frames, 'range_angle_numpy',
+                                          frame_name + '.npy'))
+        else:
+            raise TypeError('Signal type {} is not supported'.format(self.signal_type))
+        matrix = np.expand_dims(matrix, axis=0)
+        matrix = t.from_numpy(matrix)
+        n_objets = len(self.annots[frame_name]['boxes'])
+        is_empty = self.annots[frame_name]['boxes'][0] == []
+        boxes = t.FloatTensor(self.annots[frame_name]['boxes'])
+        labels = t.LongTensor(self.annots[frame_name]['labels'])
+        difficulties = [int(is_empty)]*n_objets
+        difficulties = t.ByteTensor(difficulties)
+        return matrix, boxes, labels, difficulties
+
+    def collate_fn(self, batch):
+        """
+        Since each image may have a different number of objects,
+        we need a collate function (to be passed to the DataLoader).
+        This describes how to combine these tensors of different sizes. We use lists.
+        Note: this need not be defined in this Class, can be standalone.
+        :param batch: an iterable of N sets from __getitem__()
+        :return: a tensor of images, lists of varying-size tensors of bounding boxes, labels, and difficulties
+        """
+        matrices = list()
+        boxes = list()
+        labels = list()
+        difficulties = list()
+        for b in batch:
+            matrices.append(b[0])
+            boxes.append(b[1])
+            labels.append(b[2])
+            difficulties.append(b[3])
+            images = torch.stack(matrices, dim=0)
+        return matrices, boxes, labels, difficulties
+
+
