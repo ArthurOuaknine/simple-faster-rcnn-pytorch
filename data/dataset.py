@@ -32,6 +32,11 @@ def pytorch_normalze(img):
     return img.numpy()
 
 
+def carrada_normalize(mtrx):
+    mtrx = (mtrx - np.mean(mtrx))/(np.max(mtrx) - np.min(mtrx))
+    return mtrx
+
+
 def caffe_normalize(img):
     """
     return appr -125-125 BGR
@@ -74,7 +79,8 @@ def preprocess(img, min_size=600, max_size=1000):
     if opt.caffe_pretrain:
         normalize = caffe_normalize
     else:
-        normalize = pytorch_normalze
+        # normalize = pytorch_normalze
+        normalize = carrada_normalize
     return normalize(img)
 
 
@@ -143,10 +149,10 @@ class CarradaDataset(Dataset):
     RA_SHAPE = (256, 256)
     NB_CLASSES = 4
 
-    def __init__(self, seq_name, split, annotation_type, signal_type, path_to_frames):
+    def __init__(self, opt, seq_name, split, annotation_type, signal_type, path_to_frames):
         self.cls = self.__class__
+        self.opt = opt
         self.dataset = Carrada().get(split)
-        print(self.dataset.keys())
         self.dataset = self.dataset['2020-02-28-13-13-43']
         self.annotation_type = annotation_type
         self.signal_type = signal_type
@@ -154,6 +160,7 @@ class CarradaDataset(Dataset):
         self.path_to_annots = os.path.join(self.path_to_frames, 'annotations',
                                            self.annotation_type,
                                            self.signal_type + '_light.json')
+        self.tsf = Transform(self.opt.min_size, self.opt.max_size)
         with open(self.path_to_annots, 'r') as fp:
             self.annots = json.load(fp)
 
@@ -172,14 +179,19 @@ class CarradaDataset(Dataset):
         else:
             raise TypeError('Signal type {} is not supported'.format(self.signal_type))
         matrix = np.expand_dims(matrix, axis=0)
-        matrix = t.from_numpy(matrix)
+        # matrix = t.from_numpy(matrix)
         n_objets = len(self.annots[frame_name]['boxes'])
         is_empty = self.annots[frame_name]['boxes'][0] == []
-        boxes = t.FloatTensor(self.annots[frame_name]['boxes'])
-        labels = t.LongTensor(self.annots[frame_name]['labels'])
+        # boxes = t.FloatTensor(self.annots[frame_name]['boxes'])
+        boxes = np.array(self.annots[frame_name]['boxes'])
+        # labels = t.LongTensor(self.annots[frame_name]['labels'])
+        labels = np.array(self.annots[frame_name]['labels'])
         difficulties = [int(is_empty)]*n_objets
-        difficulties = t.ByteTensor(difficulties)
-        return matrix, boxes, labels, difficulties
+        # difficulties = t.ByteTensor(difficulties)
+        difficulties = np.array(difficulties)
+        matrix, boxes, labels, scale = self.tsf((matrix, boxes, labels))
+        # return matrix, boxes, labels, difficulties
+        return matrix.copy(), boxes.copy(), labels.copy(), scale
 
     def collate_fn(self, batch):
         """

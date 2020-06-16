@@ -5,6 +5,7 @@ from torchvision.models import vgg16
 from model.region_proposal_network import RegionProposalNetwork
 from model.faster_rcnn import FasterRCNN
 from model.roi_module import RoIPooling2D
+from model.custom_vgg import vgg16 as custom_vgg16
 from utils import array_tool as at
 from utils.config import opt
 
@@ -16,7 +17,9 @@ def decom_vgg16():
         if not opt.load_path:
             model.load_state_dict(t.load(opt.caffe_pretrain_path))
     else:
-        model = vgg16(not opt.load_path)
+        # model = vgg16(not opt.load_path)
+        model = custom_vgg16(pretrained=False)
+        # Custom first layer in_channels
 
     features = list(model.features)[:30]
     classifier = model.classifier

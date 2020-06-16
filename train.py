@@ -58,7 +58,7 @@ def train(**kwargs):
     path_to_frames = os.path.join(carrada, seq_name)
 
     # dataset = Dataset(opt)
-    dataset = CarradaDataset(seq_name, 'Train', 'box', 'range_angle', path_to_frames)
+    dataset = CarradaDataset(opt, seq_name, 'Train', 'box', 'range_angle', path_to_frames)
     print('load data')
     dataloader = data_.DataLoader(dataset, \
                                   batch_size=1, \
@@ -66,7 +66,7 @@ def train(**kwargs):
                                   # pin_memory=True,
                                   num_workers=opt.num_workers)
     # testset = TestDataset(opt)
-    # TESTER TO DEFINE
+    # FLAG: TESTER TO DEFINE
     # testset = CarradaDataset(seq_name, 'Test', 'box', 'range_angle', path_to_frames)
     # test_dataloader = data_.DataLoader(testset,
     #                                    batch_size=1,
@@ -86,10 +86,11 @@ def train(**kwargs):
     for epoch in range(opt.epoch):
         trainer.reset_meters()
         for ii, (img, bbox_, label_, scale) in tqdm(enumerate(dataloader)):
-            import ipdb; ipdb.set_trace()
+            # import ipdb; ipdb.set_trace()
             scale = at.scalar(scale)
             img, bbox, label = img.cuda().float(), bbox_.cuda(), label_.cuda()
             trainer.train_step(img, bbox, label, scale)
+            print(trainer.get_meter_data())
 
             if (ii + 1) % opt.plot_every == 0:
                 if os.path.exists(opt.debug_file):
@@ -117,22 +118,25 @@ def train(**kwargs):
                 trainer.vis.text(str(trainer.rpn_cm.value().tolist()), win='rpn_cm')
                 # roi confusion matrix
                 trainer.vis.img('roi_cm', at.totensor(trainer.roi_cm.conf, False).float())
-        eval_result = eval(test_dataloader, faster_rcnn, test_num=opt.test_num)
-        trainer.vis.plot('test_map', eval_result['map'])
+        # FLAG: eval/test
+        # eval_result = eval(test_dataloader, faster_rcnn, test_num=opt.test_num)
+        # trainer.vis.plot('test_map', eval_result['map'])
         lr_ = trainer.faster_rcnn.optimizer.param_groups[0]['lr']
         log_info = 'lr:{}, map:{},loss:{}'.format(str(lr_),
                                                   str(eval_result['map']),
                                                   str(trainer.get_meter_data()))
         trainer.vis.log(log_info)
 
+        # FLAG: eval/test
+        """
         if eval_result['map'] > best_map:
             best_map = eval_result['map']
             best_path = trainer.save(best_map=best_map)
+        """
         if epoch == 9:
             trainer.load(best_path)
             trainer.faster_rcnn.scale_lr(opt.lr_decay)
             lr_ = lr_ * opt.lr_decay
-
         if epoch == 13: 
             break
 
