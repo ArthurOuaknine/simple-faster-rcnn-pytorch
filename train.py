@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from utils.config import opt
 # from data.dataset import Dataset, TestDataset, inverse_normalize
-from data.dataset import CarradaDataset, inverse_normalize
+from data.dataset import CarradaDataset, TestCarradaDataset, inverse_normalize
 from model import FasterRCNNVGG16
 from torch.utils import data as data_
 from trainer import FasterRCNNTrainer
@@ -65,15 +65,21 @@ def train(**kwargs):
                                   shuffle=True, \
                                   # pin_memory=True,
                                   num_workers=opt.num_workers)
-    # testset = TestDataset(opt)
+    valset = TestCarradaDataset(opt, seq_name, 'Validation', 'box', 'range_angle', path_to_frames)
+    testset = TestCarradaDataset(opt, seq_name, 'Test', 'box', 'range_angle', path_to_frames)
     # FLAG: TESTER TO DEFINE
     # testset = CarradaDataset(seq_name, 'Test', 'box', 'range_angle', path_to_frames)
-    # test_dataloader = data_.DataLoader(testset,
-    #                                    batch_size=1,
-    #                                    num_workers=opt.test_num_workers,
-    #                                    shuffle=False, \
-    #                                    pin_memory=True
-    #                                    )
+    val_dataloader = data_.DataLoader(valset,
+                                      batch_size=1,
+                                      num_workers=opt.test_num_workers,
+                                      shuffle=False, \
+                                      pin_memory=True)
+    test_dataloader = data_.DataLoader(testset,
+                                       batch_size=1,
+                                       num_workers=opt.test_num_workers,
+                                       shuffle=False, \
+                                       pin_memory=True)
+
     faster_rcnn = FasterRCNNVGG16()
     print('model construct completed')
     trainer = FasterRCNNTrainer(faster_rcnn).cuda()
@@ -119,7 +125,7 @@ def train(**kwargs):
                 # roi confusion matrix
                 trainer.vis.img('roi_cm', at.totensor(trainer.roi_cm.conf, False).float())
         # FLAG: eval/test
-        # eval_result = eval(test_dataloader, faster_rcnn, test_num=opt.test_num)
+        eval_result = eval(test_dataloader, faster_rcnn, test_num=opt.test_num)
         # trainer.vis.plot('test_map', eval_result['map'])
         lr_ = trainer.faster_rcnn.optimizer.param_groups[0]['lr']
         log_info = 'lr:{}, map:{},loss:{}'.format(str(lr_),
@@ -128,16 +134,15 @@ def train(**kwargs):
         trainer.vis.log(log_info)
 
         # FLAG: eval/test
-        """
         if eval_result['map'] > best_map:
             best_map = eval_result['map']
             best_path = trainer.save(best_map=best_map)
-        """
+
         if epoch == 9:
             trainer.load(best_path)
             trainer.faster_rcnn.scale_lr(opt.lr_decay)
             lr_ = lr_ * opt.lr_decay
-        if epoch == 13: 
+        if epoch == 13:
             break
 
 

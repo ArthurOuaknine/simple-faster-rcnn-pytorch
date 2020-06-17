@@ -7,6 +7,7 @@ import visdom
 
 matplotlib.use('Agg')
 from matplotlib import pyplot as plot
+import matplotlib.colors as colors
 
 # from data.voc_dataset import VOC_BBOX_LABEL_NAMES
 
@@ -59,6 +60,17 @@ def vis_image(img, ax=None):
     ax.imshow(img.astype(np.uint8))
     return ax
 
+def vis_matrix(matrix, ax=None):
+    min_value, max_value = np.min(matrix), np.max(matrix)
+    cmap = plot.get_cmap('plasma')
+    norm = colors.Normalize(vmin=min_value, vmax=max_value)
+    colored_matrix = cmap(norm(matrix[0]))
+    colored_matrix = colored_matrix[:, :, :3]
+    if ax is None:
+        fig = plot.figure()
+        ax = fig.add_subplot(1, 1, 1)
+    ax.imshow(colored_matrix.astype(np.uint8))
+    return ax
 
 def vis_bbox(img, bbox, label=None, score=None, ax=None):
     """Visualize bounding boxes inside image.
@@ -96,7 +108,7 @@ def vis_bbox(img, bbox, label=None, score=None, ax=None):
         raise ValueError('The length of score must be same as that of bbox')
 
     # Returns newly instantiated matplotlib.axes.Axes object if ax is None
-    ax = vis_image(img, ax=ax)
+    ax = vis_matrix(img, ax=ax)
 
     # If there is no bounding box to display, visualize the image and exit.
     if len(bbox) == 0:
