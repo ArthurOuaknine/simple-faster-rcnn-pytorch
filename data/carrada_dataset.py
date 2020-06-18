@@ -18,6 +18,7 @@ class Carrada(Configurable):
         self.validation = dict()
         self.test = dict()
         self._split()
+        self.label_names = CARRADA_BBOX_LABEL_NAMES
 
     def _load_data_seq_ref(self):
         path = os.path.join(self.carrada, 'data_seq_ref.json')
@@ -52,3 +53,8 @@ class Carrada(Configurable):
             return self.test
         raise TypeError('Type {} is not supported for splits.'.format(split))
 
+CARRADA_BBOX_LABEL_NAMES = (
+    'background',
+    'pedestrian',
+    'cyclist',
+    'car')

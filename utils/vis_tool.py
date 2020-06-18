@@ -35,6 +35,14 @@ VOC_BBOX_LABEL_NAMES = (
     'tv',
 )
 
+CARRADA_BBOX_LABEL_NAMES = (
+    'background',
+    'pedestrian',
+    'cycist',
+    'car'
+)
+
+
 
 def vis_image(img, ax=None):
     """Visualize a color image.
@@ -60,12 +68,14 @@ def vis_image(img, ax=None):
     ax.imshow(img.astype(np.uint8))
     return ax
 
-def vis_matrix(matrix, ax=None):
+def vis_matrix(matrix, ax=None, get_colored_matrix=False):
     min_value, max_value = np.min(matrix), np.max(matrix)
     cmap = plot.get_cmap('plasma')
     norm = colors.Normalize(vmin=min_value, vmax=max_value)
     colored_matrix = cmap(norm(matrix[0]))
     colored_matrix = colored_matrix[:, :, :3]
+    if get_colored_matrix:
+        return colored_matrix
     if ax is None:
         fig = plot.figure()
         ax = fig.add_subplot(1, 1, 1)
@@ -100,7 +110,8 @@ def vis_bbox(img, bbox, label=None, score=None, ax=None):
 
     """
 
-    label_names = list(VOC_BBOX_LABEL_NAMES) + ['bg']
+    # label_names = list(VOC_BBOX_LABEL_NAMES) + ['bg']
+    label_names = list(CARRADA_BBOX_LABEL_NAMES) + ['bg']
     # add for index `-1`
     if label is not None and not len(bbox) == len(label):
         raise ValueError('The length of label must be same as that of bbox')
@@ -109,6 +120,7 @@ def vis_bbox(img, bbox, label=None, score=None, ax=None):
 
     # Returns newly instantiated matplotlib.axes.Axes object if ax is None
     ax = vis_matrix(img, ax=ax)
+    colored_matrix = vis_matrix(img, ax=ax, get_colored_matrix=True)
 
     # If there is no bounding box to display, visualize the image and exit.
     if len(bbox) == 0:
@@ -235,6 +247,11 @@ class Visualizer(object):
         self.img('input_imgs',t.Tensor(100,3,64,64),nrows=10)
         !!don't ~~self.img('input_imgs',t.Tensor(100,64,64),nrows=10)~~!!
         """
+        # img_to_show = t.Tensor(img_).cpu().numpy()
+        # img_to_show = vis_matrix(img_to_show, ax=None, get_colored_matrix=True)
+        # img_to_show = img_to_show.transpose(2, 0, 1)
+        # self.vis.images(img_to_show, win=name, opts=dict(title=name), **kwargs)
+
         self.vis.images(t.Tensor(img_).cpu().numpy(),
                         win=name,
                         opts=dict(title=name),

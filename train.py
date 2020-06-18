@@ -54,19 +54,24 @@ def train(**kwargs):
     opt._parse(kwargs)
 
     carrada = download('Carrada')
-    seq_name = '2020-02-28-13-13-43'
-    path_to_frames = os.path.join(carrada, seq_name)
+    seq_name_train = '2020-02-28-13-13-43'
+    seq_name_val = '2020-02-28-13-07-38'
+    seq_name_test = '2020-02-28-13-14-35'
+    # path_to_frames = os.path.join(carrada, seq_name)
 
     # dataset = Dataset(opt)
-    dataset = CarradaDataset(opt, seq_name, 'Train', 'box', 'range_angle', path_to_frames)
+    dataset = CarradaDataset(opt, seq_name_train, 'Train', 'box', 'range_angle',
+                             path_to_frames=os.path.join(carrada, seq_name_train))
     print('load data')
     dataloader = data_.DataLoader(dataset, \
                                   batch_size=1, \
                                   shuffle=True, \
                                   # pin_memory=True,
                                   num_workers=opt.num_workers)
-    valset = TestCarradaDataset(opt, seq_name, 'Validation', 'box', 'range_angle', path_to_frames)
-    testset = TestCarradaDataset(opt, seq_name, 'Test', 'box', 'range_angle', path_to_frames)
+    valset = TestCarradaDataset(opt, seq_name_val, 'Validation', 'box', 'range_angle',
+                                path_to_frames=os.path.join(carrada, seq_name_val))
+    testset = TestCarradaDataset(opt, seq_name_test, 'Test', 'box', 'range_angle',
+                                 path_to_frames=os.path.join(carrada, seq_name_test))
     # FLAG: TESTER TO DEFINE
     # testset = CarradaDataset(seq_name, 'Test', 'box', 'range_angle', path_to_frames)
     val_dataloader = data_.DataLoader(valset,
@@ -86,17 +91,15 @@ def train(**kwargs):
     if opt.load_path:
         trainer.load(opt.load_path)
         print('load pretrained model from %s' % opt.load_path)
-    # trainer.vis.text(dataset.db.label_names, win='labels')
+    trainer.vis.text(dataset.label_names, win='labels')
     best_map = 0
     lr_ = opt.lr
     for epoch in range(opt.epoch):
         trainer.reset_meters()
         for ii, (img, bbox_, label_, scale) in tqdm(enumerate(dataloader)):
-            # import ipdb; ipdb.set_trace()
             scale = at.scalar(scale)
             img, bbox, label = img.cuda().float(), bbox_.cuda(), label_.cuda()
             trainer.train_step(img, bbox, label, scale)
-            print(trainer.get_meter_data())
 
             if (ii + 1) % opt.plot_every == 0:
                 if os.path.exists(opt.debug_file):
@@ -126,7 +129,7 @@ def train(**kwargs):
                 trainer.vis.img('roi_cm', at.totensor(trainer.roi_cm.conf, False).float())
         # FLAG: eval/test
         eval_result = eval(test_dataloader, faster_rcnn, test_num=opt.test_num)
-        # trainer.vis.plot('test_map', eval_result['map'])
+        trainer.vis.plot('test_map', eval_result['map'])
         lr_ = trainer.faster_rcnn.optimizer.param_groups[0]['lr']
         log_info = 'lr:{}, map:{},loss:{}'.format(str(lr_),
                                                   str(eval_result['map']),

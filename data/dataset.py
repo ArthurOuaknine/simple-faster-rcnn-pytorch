@@ -148,12 +148,19 @@ class CarradaDataset(Dataset):
     RD_SHAPE = (256, 64)
     RA_SHAPE = (256, 256)
     NB_CLASSES = 4
+    CARRADA_BBOX_LABEL_NAMES = (
+        'background',
+        'pedestrian',
+        'cyclist',
+        'car')
+
 
     def __init__(self, opt, seq_name, split, annotation_type, signal_type, path_to_frames):
         self.cls = self.__class__
         self.opt = opt
         self.dataset = Carrada().get(split)
-        self.dataset = self.dataset['2020-02-28-13-13-43']
+        # FLAG: to modify
+        self.dataset = self.dataset[seq_name]
         self.annotation_type = annotation_type
         self.signal_type = signal_type
         self.path_to_frames = path_to_frames
@@ -163,6 +170,7 @@ class CarradaDataset(Dataset):
         self.tsf = Transform(self.opt.min_size, self.opt.max_size)
         with open(self.path_to_annots, 'r') as fp:
             self.annots = json.load(fp)
+        self.label_names = self.cls.CARRADA_BBOX_LABEL_NAMES
 
     def __len__(self):
         """Number of frames per sequence"""
@@ -228,10 +236,8 @@ class TestCarradaDataset(Dataset):
         self.cls = self.__class__
         self.opt = opt
         self.dataset = Carrada().get(split)
-        if split == 'Test':
-            self.dataset = self.dataset['2020-02-28-13-14-35']
-        else:
-            self.dataset = self.dataset['2020-02-28-13-07-38']
+        # FLAG: to modify
+        self.dataset = self.dataset[seq_name]
         self.annotation_type = annotation_type
         self.signal_type = signal_type
         self.path_to_frames = path_to_frames
@@ -264,6 +270,8 @@ class TestCarradaDataset(Dataset):
         difficulties = [int(is_empty)]*n_objets
         difficulties = np.array(difficulties)
 
+        if len(matrix.shape) < 3:
+            matrix = np.expand_dims(matrix, axis=0)
         matrix = preprocess(matrix)
         return matrix, org_matrix.shape[1:], boxes, labels, difficulties
 
