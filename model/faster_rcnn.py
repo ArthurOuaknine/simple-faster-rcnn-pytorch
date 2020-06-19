@@ -183,7 +183,7 @@ class FasterRCNN(nn.Module):
         return bbox, label, score
 
     @nograd
-    def predict(self, imgs,sizes=None,visualize=False):
+    def predict(self, imgs, signal_type, sizes=None, visualize=False):
         """Detect objects from images.
 
         This method predicts objects for each image.
@@ -218,14 +218,19 @@ class FasterRCNN(nn.Module):
             sizes = list()
             for img in imgs:
                 size = img.shape[1:]
-                img = preprocess(at.tonumpy(img))
+                img = preprocess(at.tonumpy(img), signal_type)
                 prepared_imgs.append(img)
                 sizes.append(size)
         else:
-            prepared_imgs = imgs 
+            prepared_imgs = imgs
+            sizes = list()
+            for img in imgs:
+                size = img.shape[1:]
+                sizes.append(size)
         bboxes = list()
         labels = list()
         scores = list()
+
         for img, size in zip(prepared_imgs, sizes):
             img = at.totensor(img[None]).float()
             scale = img.shape[3] / size[1]

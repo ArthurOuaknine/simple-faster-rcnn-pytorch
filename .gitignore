@@ -109,3 +109,7 @@ venv.bak/
 
 # Python Kernprof profiling
 .lprof
+
+# Models
+checkpoints/
+*.out

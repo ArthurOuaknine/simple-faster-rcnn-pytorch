@@ -54,7 +54,6 @@ class Carrada(Configurable):
         raise TypeError('Type {} is not supported for splits.'.format(split))
 
 CARRADA_BBOX_LABEL_NAMES = (
-    'background',
     'pedestrian',
     'cyclist',
     'car')

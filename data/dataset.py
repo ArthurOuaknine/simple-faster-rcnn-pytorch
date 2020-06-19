@@ -21,6 +21,16 @@ def inverse_normalize(img):
     return (img * 0.225 + 0.45).clip(min=0, max=1) * 255
 
 
+def carrada_inverse_normalize(matrix, signal_type):
+    # approximate un-normalize for visualize
+    if signal_type == 'range_angle':
+        matrix = matrix*(152759.25 - 21.93) + 649.78
+    elif signal_type == 'range_doppler':
+        matrix = matrix*(95. - 13.7) + 34.39
+    # return matrix.clip(min=0, max=1) * 255
+    return matrix
+
+
 def pytorch_normalze(img):
     """
     https://github.com/pytorch/vision/issues/223
@@ -32,9 +42,14 @@ def pytorch_normalze(img):
     return img.numpy()
 
 
-def carrada_normalize(mtrx):
-    mtrx = (mtrx - np.mean(mtrx))/(np.max(mtrx) - np.min(mtrx))
-    return mtrx
+def carrada_normalize(matrix, signal_type):
+    if signal_type == 'range_angle':
+        matrix = (matrix - 649.78)/(152759.25 - 21.93)
+    elif signal_type == 'range_doppler':
+        matrix = (matrix - 34.39)/(95. - 13.7)
+    else:
+        raise TypeError('Signal type {} is not supported.'.format(signal_type))
+    return matrix
 
 
 def caffe_normalize(img):
@@ -48,7 +63,7 @@ def caffe_normalize(img):
     return img
 
 
-def preprocess(img, min_size=600, max_size=1000):
+def preprocess(img, signal_type, min_size=600, max_size=1000):
     """Preprocess an image for feature extraction.
 
     The length of the shorter edge is scaled to :obj:`self.min_size`.
@@ -81,19 +96,20 @@ def preprocess(img, min_size=600, max_size=1000):
     else:
         # normalize = pytorch_normalze
         normalize = carrada_normalize
-    return normalize(img)
+    return normalize(img, signal_type)
 
 
 class Transform(object):
 
-    def __init__(self, min_size=600, max_size=1000):
+    def __init__(self, signal_type, min_size=600, max_size=1000):
+        self.signal_type = signal_type
         self.min_size = min_size
         self.max_size = max_size
 
     def __call__(self, in_data):
         img, bbox, label = in_data
         _, H, W = img.shape
-        img = preprocess(img, self.min_size, self.max_size)
+        img = preprocess(img, self.signal_type, self.min_size, self.max_size)
         _, o_H, o_W = img.shape
         scale = o_H / H
         bbox = util.resize_bbox(bbox, (H, W), (o_H, o_W))
@@ -140,6 +156,24 @@ class TestDataset:
     def __len__(self):
         return len(self.db)
 
+
+class SequenceCarradaDataset(Dataset):
+    """DataLoader class for Carrada sequences
+    Only shuffle sequences
+    """
+
+    def __init__(self, dataset):
+        self.dataset = dataset
+        self.seq_names = list(self.dataset.keys())
+
+    def __len__(self):
+        return len(self.seq_names)
+
+    def __getitem__(self, idx):
+        seq_name = self.seq_names[idx]
+        return seq_name, self.dataset[seq_name]
+
+
 class CarradaDataset(Dataset):
     """DataLoader class for Carrada sequences
     Load frames
@@ -147,27 +181,24 @@ class CarradaDataset(Dataset):
 
     RD_SHAPE = (256, 64)
     RA_SHAPE = (256, 256)
-    NB_CLASSES = 4
+    NB_CLASSES = 3
     CARRADA_BBOX_LABEL_NAMES = (
-        'background',
         'pedestrian',
         'cyclist',
         'car')
 
 
-    def __init__(self, opt, seq_name, split, annotation_type, signal_type, path_to_frames):
+    def __init__(self, opt, dataset, annotation_type, signal_type, path_to_frames):
         self.cls = self.__class__
         self.opt = opt
-        self.dataset = Carrada().get(split)
-        # FLAG: to modify
-        self.dataset = self.dataset[seq_name]
+        self.dataset = dataset
         self.annotation_type = annotation_type
         self.signal_type = signal_type
         self.path_to_frames = path_to_frames
         self.path_to_annots = os.path.join(self.path_to_frames, 'annotations',
                                            self.annotation_type,
                                            self.signal_type + '_light.json')
-        self.tsf = Transform(self.opt.min_size, self.opt.max_size)
+        self.tsf = Transform(self.signal_type, self.opt.min_size, self.opt.max_size)
         with open(self.path_to_annots, 'r') as fp:
             self.annots = json.load(fp)
         self.label_names = self.cls.CARRADA_BBOX_LABEL_NAMES
@@ -177,7 +208,7 @@ class CarradaDataset(Dataset):
         return len(self.dataset)
 
     def __getitem__(self, idx):
-        frame_name = self.dataset[idx]
+        frame_name = self.dataset[idx][0]
         if self.signal_type == 'range_doppler':
             matrix = np.load(os.path.join(self.path_to_frames, 'range_doppler_numpy',
                                           frame_name + '.npy'))
@@ -199,6 +230,7 @@ class CarradaDataset(Dataset):
         difficulties = np.array(difficulties)
         matrix, boxes, labels, scale = self.tsf((matrix, boxes, labels))
         # return matrix, boxes, labels, difficulties
+        labels = labels - 1 # Discard the background class
         return matrix.copy(), boxes.copy(), labels.copy(), scale
 
     def collate_fn(self, batch):
@@ -230,21 +262,19 @@ class TestCarradaDataset(Dataset):
 
     RD_SHAPE = (256, 64)
     RA_SHAPE = (256, 256)
-    NB_CLASSES = 4
+    NB_CLASSES = 3
 
-    def __init__(self, opt, seq_name, split, annotation_type, signal_type, path_to_frames):
+    def __init__(self, opt, dataset, annotation_type, signal_type, path_to_frames):
         self.cls = self.__class__
         self.opt = opt
-        self.dataset = Carrada().get(split)
-        # FLAG: to modify
-        self.dataset = self.dataset[seq_name]
+        self.dataset = dataset
         self.annotation_type = annotation_type
         self.signal_type = signal_type
         self.path_to_frames = path_to_frames
         self.path_to_annots = os.path.join(self.path_to_frames, 'annotations',
                                            self.annotation_type,
                                            self.signal_type + '_light.json')
-        self.tsf = Transform(self.opt.min_size, self.opt.max_size)
+        self.tsf = Transform(self.signal_type, self.opt.min_size, self.opt.max_size)
         with open(self.path_to_annots, 'r') as fp:
             self.annots = json.load(fp)
 
@@ -253,7 +283,7 @@ class TestCarradaDataset(Dataset):
         return len(self.dataset)
 
     def __getitem__(self, idx):
-        frame_name = self.dataset[idx]
+        frame_name = self.dataset[idx][0]
         if self.signal_type == 'range_doppler':
             matrix = np.load(os.path.join(self.path_to_frames, 'range_doppler_numpy',
                                           frame_name + '.npy'))
@@ -272,7 +302,7 @@ class TestCarradaDataset(Dataset):
 
         if len(matrix.shape) < 3:
             matrix = np.expand_dims(matrix, axis=0)
-        matrix = preprocess(matrix)
+        matrix = preprocess(matrix, self.signal_type)
         return matrix, org_matrix.shape[1:], boxes, labels, difficulties
 
     def collate_fn(self, batch):

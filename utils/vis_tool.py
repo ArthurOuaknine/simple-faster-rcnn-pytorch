@@ -36,7 +36,6 @@ VOC_BBOX_LABEL_NAMES = (
 )
 
 CARRADA_BBOX_LABEL_NAMES = (
-    'background',
     'pedestrian',
     'cycist',
     'car'
@@ -79,7 +78,7 @@ def vis_matrix(matrix, ax=None, get_colored_matrix=False):
     if ax is None:
         fig = plot.figure()
         ax = fig.add_subplot(1, 1, 1)
-    ax.imshow(colored_matrix.astype(np.uint8))
+    ax.imshow((colored_matrix*255.).astype(np.uint8))
     return ax
 
 def vis_bbox(img, bbox, label=None, score=None, ax=None):
@@ -120,7 +119,7 @@ def vis_bbox(img, bbox, label=None, score=None, ax=None):
 
     # Returns newly instantiated matplotlib.axes.Axes object if ax is None
     ax = vis_matrix(img, ax=ax)
-    colored_matrix = vis_matrix(img, ax=ax, get_colored_matrix=True)
+    # colored_matrix = vis_matrix(img, ax=ax, get_colored_matrix=True)
 
     # If there is no bounding box to display, visualize the image and exit.
     if len(bbox) == 0:
@@ -167,7 +166,6 @@ def fig2data(fig):
     w, h = fig.canvas.get_width_height()
     buf = np.fromstring(fig.canvas.tostring_argb(), dtype=np.uint8)
     buf.shape = (w, h, 4)
-
     # canvas.tostring_argb give pixmap in ARGB mode. Roll the ALPHA channel to have it in RGBA mode
     buf = np.roll(buf, 3, axis=2)
     return buf.reshape(h, w, 4)
