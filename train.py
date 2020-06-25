@@ -12,6 +12,7 @@ from utils.config import opt
 from data.carrada_dataset import Carrada
 from data.dataset import SequenceCarradaDataset, CarradaDataset, TestCarradaDataset, carrada_inverse_normalize
 from model import FasterRCNNVGG16
+from model import FasterRCNNRESNET101
 from torch.utils import data as data_
 from trainer import FasterRCNNTrainer
 from utils import array_tool as at
@@ -104,7 +105,8 @@ def train(**kwargs):
                                         # pin_memory=True,
                                         num_workers=opt.num_workers)
 
-    faster_rcnn = FasterRCNNVGG16(n_fg_class=3)
+    # faster_rcnn = FasterRCNNVGG16(n_fg_class=3)
+    faster_rcnn = FasterRCNNRESNET101(n_fg_class=3)
     print('model construct completed')
     trainer = FasterRCNNTrainer(faster_rcnn).cuda()
     scheduler = ExponentialLR(trainer.faster_rcnn.optimizer, gamma=0.9)
