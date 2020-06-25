@@ -196,16 +196,18 @@ class FasterRCNNTrainer(nn.Module):
             save_dict['optimizer'] = self.optimizer.state_dict()
 
         if save_path is None:
-            timestr = time.strftime('%m%d%H%M')
-            save_path = 'checkpoints/fasterrcnn_%s' % timestr
-            for k_, v_ in kwargs.items():
-                save_path += '_%s' % v_
+            # timestr = time.strftime('%m%d%H%M')
+            # save_path = 'checkpoints/fasterrcnn_%s' % timestr
+            # for k_, v_ in kwargs.items():
+            #     save_path += '_%s' % v_
+            save_path = os.path.join(opt.logs_path, opt.model_name, 'results')
 
-        save_dir = os.path.dirname(save_path)
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
+        os.makedirs(save_path, exist_ok=True)
+        # save_dir = os.path.dirname(save_path)
+        # if not os.path.exists(save_dir):
+            # os.makedirs(save_dir)
 
-        t.save(save_dict, save_path)
+        t.save(save_dict, os.path.join(save_path, opt.model_name + '.pt'))
         self.vis.save([self.vis.env])
         return save_path
 

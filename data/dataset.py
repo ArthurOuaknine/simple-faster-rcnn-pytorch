@@ -93,10 +93,12 @@ def preprocess(img, signal_type, min_size=600, max_size=1000):
     # max_size and min_size
     if opt.caffe_pretrain:
         normalize = caffe_normalize
+        return normalize
     else:
+        return img
+    # else:
         # normalize = pytorch_normalze
-        normalize = carrada_normalize
-    return normalize(img, signal_type)
+        # normalize = carrada_normalize
 
 
 class Transform(object):

@@ -1,3 +1,4 @@
+import os
 from pprint import pprint
 
 
@@ -6,6 +7,7 @@ from pprint import pprint
 # e.g. --voc-data-dir='./data/'
 
 class Config:
+    
     # data
     voc_data_dir = '/home/cy/.chainer/dataset/pfnet/chainercv/voc/VOCdevkit/VOC2007/'
     min_size = 600  # image resize
@@ -22,19 +24,21 @@ class Config:
     weight_decay = 0.0005
     lr_decay = 0.1  # 1e-3 -> 1e-4
     lr = 1e-3
+    lr_step = 5
 
 
     # visualization
     env = 'faster-rcnn'  # visdom env
-    port = 8097
-    plot_every = 40  # vis every N iter
+    port = 8097 # for visdom
+    plot_every = 50  # vis every N iter
+    img_every = 250
 
     # preset
     data = 'voc'
     pretrained_model = 'vgg16'
 
     # training
-    epoch = 14
+    epoch = 50
 
 
     use_adam = False # Use Adam optimizer
@@ -49,6 +53,11 @@ class Config:
 
     caffe_pretrain = False # use caffe pretrained model instead of torchvision
     caffe_pretrain_path = 'checkpoints/vgg16_caffe.pth'
+
+    # Perso
+    signal_type = 'range_doppler'
+    logs_path = os.path.join(os.environ['LOGSHOME'], 'carrada', 'baseline', 'detection')
+    model_name = 'test'
 
     def _parse(self, kwargs):
         state_dict = self._state_dict()

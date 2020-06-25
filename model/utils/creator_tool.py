@@ -426,5 +426,8 @@ class ProposalCreator:
             thresh=self.nms_thresh)
         if n_post_nms > 0:
             keep = keep[:n_post_nms]
-        roi = roi[keep]
+        try:
+            roi = roi[keep]
+        except ValueError:
+            import ipdb; ipdb.set_trace()
         return roi
