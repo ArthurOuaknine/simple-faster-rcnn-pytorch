@@ -1,7 +1,7 @@
 import torch as t
 from torch import nn
-from torchvision.models import resnet101
-from model.custom_resnet import resnet101 as custom_resnet101
+from torchvision.models import resnet18
+from model.custom_resnet import resnet18 as custom_resnet18
 from model.region_proposal_network import RegionProposalNetwork
 from model.faster_rcnn import FasterRCNN
 from model.roi_module import RoIPooling2D
@@ -13,14 +13,14 @@ def set_bn_fix(m):
     if classname.find('BatchNorm') != -1:
         for p in m.parameters(): p.requires_grad = False
 
-def decom_resnet101():
+def decom_resnet18():
 
     if opt.caffe_pretrain:
-        model = resnet101(pretrained=False)
+        model = resnet18(pretrained=False)
         if not opt.load_path:
             model.load_state_dict(t.load(opt.caffe_pretrain_path))
     else:
-        model = custom_resnet101(pretrained=False)
+        model = custom_resnet18(pretrained=False)
 
     # freeze top conv and bn layers
     for p in model.conv1.parameters(): p.requires_grad = False
@@ -28,17 +28,17 @@ def decom_resnet101():
     model.apply(set_bn_fix)
 
     # resnet.layer0 to resnet.layer3 for extractor
-    import ipdb; ipdb.set_trace()
     features_extractor = nn.Sequential(model.conv1, model.bn1,model.relu,
-      model.maxpool,model.layer1,model.layer2,model.layer3)
+                                       model.maxpool, model.layer1,
+                                       model.layer2, model.layer3)
 
     # layer4 for classifier
     features_classifier = nn.Sequential(model.layer4)
 
     return features_extractor, features_classifier
 
-class FasterRCNNRESNET101(FasterRCNN):
-    """Faster R-CNN based on RESNET101.
+class FasterRCNNRESNET18(FasterRCNN):
+    """Faster R-CNN based on RESNET18.
     For descriptions on the interface of this model, please refer to
     :class:`model.faster_rcnn.FasterRCNN`.
 
@@ -61,31 +61,31 @@ class FasterRCNNRESNET101(FasterRCNN):
                  anchor_scales=[8, 16, 32]
                  ):
                  
-        extractor, classifier = decom_resnet101()
+        extractor, classifier = decom_resnet18()
 
         rpn = RegionProposalNetwork(
-            1024, 256,
+            256, 512,
             ratios=ratios,
             anchor_scales=anchor_scales,
             feat_stride=self.feat_stride,
         )
 
-        head = RESNET101RoIHead(
+        head = RESNET18RoIHead(
             n_class=n_fg_class + 1,
             roi_size=14,
             spatial_scale=(1. / self.feat_stride),
             classifier=classifier
         )
 
-        super(FasterRCNNRESNET101, self).__init__(
+        super(FasterRCNNRESNET18, self).__init__(
             extractor,
             rpn,
             head,
         )
 
 
-class RESNET101RoIHead(nn.Module):
-    """Faster R-CNN Head for RESNET101 based implementation.
+class RESNET18RoIHead(nn.Module):
+    """Faster R-CNN Head for RESNET18 based implementation.
     This class is used as a head for Faster R-CNN.
     This outputs class-wise localizations and classification based on feature
     maps in the given RoIs.
@@ -101,11 +101,13 @@ class RESNET101RoIHead(nn.Module):
     def __init__(self, n_class, roi_size, spatial_scale,
                  classifier):
         # n_class includes the background
-        super(RESNET101RoIHead, self).__init__()
+        super(RESNET18RoIHead, self).__init__()
 
         self.classifier = classifier
-        self.cls_loc = nn.Linear(2048, n_class * 4)
-        self.score = nn.Linear(2048, n_class)
+        # self.cls_loc = nn.Linear(2048, n_class * 4)
+        # self.score = nn.Linear(2048, n_class)
+        self.cls_loc = nn.Linear(512, n_class * 4)
+        self.score = nn.Linear(512, n_class)
 
         normal_init(self.cls_loc, 0, 0.001)
         normal_init(self.score, 0, 0.01)
