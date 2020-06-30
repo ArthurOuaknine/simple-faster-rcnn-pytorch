@@ -221,7 +221,6 @@ class AnchorTargetCreator(object):
 
         argmax_ious, max_ious, gt_argmax_ious = \
             self._calc_ious(anchor, bbox, inside_index)
-
         # assign negative labels first so that positive labels can clobber them
         label[max_ious < self.neg_iou_thresh] = 0
 

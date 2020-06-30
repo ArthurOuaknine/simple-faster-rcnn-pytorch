@@ -55,6 +55,8 @@ class Config:
     caffe_pretrain_path = 'checkpoints/vgg16_caffe.pth'
 
     # Perso
+    debug_step = None
+    train_eval = None
     signal_type = 'range_doppler'
     logs_path = os.path.join(os.environ['LOGSHOME'], 'carrada', 'baseline', 'detection')
     model_name = 'test'

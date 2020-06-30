@@ -46,9 +46,15 @@ class FasterRCNNTrainer(nn.Module):
         self.rpn_sigma = opt.rpn_sigma
         self.roi_sigma = opt.roi_sigma
 
-        # target creator create gt_bbox gt_label etc as training targets. 
-        self.anchor_target_creator = AnchorTargetCreator()
-        self.proposal_target_creator = ProposalTargetCreator()
+        # target creator create gt_bbox gt_label etc as training targets.
+        # FLAG: add params
+        self.anchor_target_creator = AnchorTargetCreator(n_sample=64,
+                                                         pos_ratio=0.5,
+                                                         pos_iou_thresh=0.2,
+                                                         neg_iou_thresh=0.05)
+        self.proposal_target_creator = ProposalTargetCreator(n_sample=32,
+                                                             pos_iou_thresh=0.2,
+                                                             neg_iou_thresh_hi=0.2)
 
         self.loc_normalize_mean = faster_rcnn.loc_normalize_mean
         self.loc_normalize_std = faster_rcnn.loc_normalize_std
@@ -62,7 +68,7 @@ class FasterRCNNTrainer(nn.Module):
         self.roi_cm = ConfusionMeter(4)
         self.meters = {k: AverageValueMeter() for k in LossTuple._fields}  # average loss
 
-    def forward(self, imgs, bboxes, labels, scale):
+    def forward(self, imgs, bboxes, labels, scale, stop):
         """Forward Faster R-CNN and calculate losses.
 
         Here are notations used.
@@ -149,25 +155,24 @@ class FasterRCNNTrainer(nn.Module):
 
         gt_roi_label = at.totensor(gt_roi_label).long()
         gt_roi_loc = at.totensor(gt_roi_loc)
-
         roi_loc_loss = _fast_rcnn_loc_loss(
             roi_loc.contiguous(),
             gt_roi_loc,
             gt_roi_label.data,
             self.roi_sigma)
-
         roi_cls_loss = nn.CrossEntropyLoss()(roi_score, gt_roi_label.cuda())
-
         self.roi_cm.add(at.totensor(roi_score, False), gt_roi_label.data.long())
-
         losses = [rpn_loc_loss, rpn_cls_loss, roi_loc_loss, roi_cls_loss]
         losses = losses + [sum(losses)]
 
+        if stop:
+            import ipdb; ipdb.set_trace()
+
         return LossTuple(*losses)
 
-    def train_step(self, imgs, bboxes, labels, scale):
+    def train_step(self, imgs, bboxes, labels, scale, stop=False):
         self.optimizer.zero_grad()
-        losses = self.forward(imgs, bboxes, labels, scale)
+        losses = self.forward(imgs, bboxes, labels, scale, stop)
         losses.total_loss.backward()
         self.optimizer.step()
         self.update_meters(losses)

@@ -28,7 +28,6 @@ def decom_resnet101():
     model.apply(set_bn_fix)
 
     # resnet.layer0 to resnet.layer3 for extractor
-    import ipdb; ipdb.set_trace()
     features_extractor = nn.Sequential(model.conv1, model.bn1,model.relu,
       model.maxpool,model.layer1,model.layer2,model.layer3)
 

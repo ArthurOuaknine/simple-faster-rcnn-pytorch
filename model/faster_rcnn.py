@@ -150,6 +150,7 @@ class FasterRCNN(nn.Module):
                 preset to use.
 
         """
+        #FLAG: initial nms_thresh = 0.3
         if preset == 'visualize':
             self.nms_thresh = 0.3
             self.score_thresh = 0.7
@@ -235,6 +236,7 @@ class FasterRCNN(nn.Module):
             img = at.totensor(img[None]).float()
             scale = img.shape[3] / size[1]
             roi_cls_loc, roi_scores, rois, _ = self(img, scale=scale)
+
             # We are assuming that batch size is 1.
             roi_score = roi_scores.data
             roi_cls_loc = roi_cls_loc.data

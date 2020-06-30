@@ -117,11 +117,13 @@ class Transform(object):
         bbox = util.resize_bbox(bbox, (H, W), (o_H, o_W))
 
         # horizontally flip
+        # FLAG: data augmentation
+        """
         img, params = util.random_flip(
             img, x_random=True, return_param=True)
         bbox = util.flip_bbox(
             bbox, (o_H, o_W), x_flip=params['x_flip'])
-
+        """
         return img, bbox, label, scale
 
 
@@ -301,6 +303,8 @@ class TestCarradaDataset(Dataset):
         labels = np.array(self.annots[frame_name]['labels'])
         difficulties = [int(is_empty)]*n_objets
         difficulties = np.array(difficulties)
+
+        labels = labels - 1 # Discard the background class
 
         if len(matrix.shape) < 3:
             matrix = np.expand_dims(matrix, axis=0)
