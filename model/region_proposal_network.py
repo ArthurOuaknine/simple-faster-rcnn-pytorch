@@ -53,6 +53,7 @@ class RegionProposalNetwork(nn.Module):
         self.proposal_layer = ProposalCreator(self, **proposal_creator_params)
         n_anchor = self.anchor_base.shape[0]
         self.conv1 = nn.Conv2d(in_channels, mid_channels, 3, 1, 1)
+        self.leaky_relu = nn.LeakyReLU(inplace=True)
         self.score = nn.Conv2d(mid_channels, n_anchor * 2, 1, 1, 0)
         self.loc = nn.Conv2d(mid_channels, n_anchor * 4, 1, 1, 0)
         normal_init(self.conv1, 0, 0.01)
@@ -104,7 +105,8 @@ class RegionProposalNetwork(nn.Module):
             self.feat_stride, hh, ww)
 
         n_anchor = anchor.shape[0] // (hh * ww)
-        h = F.relu(self.conv1(x))
+        # h = F.relu(self.conv1(x))
+        h = self.leaky_relu(self.conv1(x))
 
         rpn_locs = self.loc(h)
         # UNNOTE: check whether need contiguous

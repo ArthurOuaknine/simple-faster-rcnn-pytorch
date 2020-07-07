@@ -79,10 +79,17 @@ class FasterRCNNRESNET18(FasterRCNN):
             classifier=classifier
         )
 
+        # FLAG: testing values (ON ALL DATASETS !!! KEEP TRAINING)
+        # to put in the super()
+        loc_normalize_mean = (86.58434286, 27.9424, 95.64971429, 35.6096)
+        loc_normalize_std = (56.39664352, 9.54124262, 54.85805827, 9.01109407)
+
         super(FasterRCNNRESNET18, self).__init__(
             extractor,
             rpn,
-            head,
+            head
+            # loc_normalize_mean,
+            # loc_normalize_std
         )
 
 
