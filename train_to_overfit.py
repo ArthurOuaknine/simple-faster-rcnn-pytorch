@@ -78,7 +78,7 @@ def eval(seq_loader, faster_rcnn, signal_type, scale=1., test_num=10000):
 
     result = eval_detection_voc(pred_bboxes, pred_labels, pred_scores,
                                 gt_bboxes, gt_labels, gt_difficults,
-                                iou_thresh=0.2,
+                                iou_thresh=0.5,
                                 use_07_metric=True)
     ious = bbox_iou(gt_bboxes[0], pred_bboxes[0])
     try:
