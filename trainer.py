@@ -45,14 +45,15 @@ class FasterRCNNTrainer(nn.Module):
         self.faster_rcnn = faster_rcnn
         self.rpn_sigma = opt.rpn_sigma
         self.roi_sigma = opt.roi_sigma
+        self.rpn_pen = opt.rpn_pen
+        self.roi_pen = opt.roi_pen
 
         # target creator create gt_bbox gt_label etc as training targets.
         # FLAG: add params
-        self.anchor_target_creator = AnchorTargetCreator(n_sample=64,
-                                                         pos_ratio=0.5,
-                                                         pos_iou_thresh=0.2,
-                                                         neg_iou_thresh=0.05)
-        self.proposal_target_creator = ProposalTargetCreator(n_sample=32,
+        self.anchor_target_creator = AnchorTargetCreator(pos_ratio=0.5,
+                                                         pos_iou_thresh=0.4,
+                                                         neg_iou_thresh=0.1)
+        self.proposal_target_creator = ProposalTargetCreator(pos_ratio=0.5,
                                                              pos_iou_thresh=0.2,
                                                              neg_iou_thresh_hi=0.2)
 
@@ -127,7 +128,6 @@ class FasterRCNNTrainer(nn.Module):
             features,
             sample_roi,
             sample_roi_index)
-
         # ------------------ RPN losses -------------------#
         gt_rpn_loc, gt_rpn_label = self.anchor_target_creator(
             at.tonumpy(bbox),
@@ -139,7 +139,8 @@ class FasterRCNNTrainer(nn.Module):
             rpn_loc,
             gt_rpn_loc,
             gt_rpn_label.data,
-            self.rpn_sigma)
+            self.rpn_sigma,
+            self.rpn_pen)
 
         # NOTE: default value of ignore_index is -100 ...
         rpn_cls_loss = F.cross_entropy(rpn_score, gt_rpn_label.cuda(), ignore_index=-1)
@@ -159,7 +160,8 @@ class FasterRCNNTrainer(nn.Module):
             roi_loc.contiguous(),
             gt_roi_loc,
             gt_roi_label.data,
-            self.roi_sigma)
+            self.roi_sigma,
+            self.roi_pen)
         roi_cls_loss = nn.CrossEntropyLoss()(roi_score, gt_roi_label.cuda())
         self.roi_cm.add(at.totensor(roi_score, False), gt_roi_label.data.long())
         losses = [rpn_loc_loss, rpn_cls_loss, roi_loc_loss, roi_cls_loss]
@@ -254,7 +256,7 @@ def _smooth_l1_loss(x, t, in_weight, sigma):
     return y.sum()
 
 
-def _fast_rcnn_loc_loss(pred_loc, gt_loc, gt_label, sigma):
+def _fast_rcnn_loc_loss(pred_loc, gt_loc, gt_label, sigma, penalty=0):
     in_weight = t.zeros(gt_loc.shape).cuda()
     # Localization loss is calculated only for positive rois.
     # NOTE:  unlike origin implementation, 
@@ -263,4 +265,5 @@ def _fast_rcnn_loc_loss(pred_loc, gt_loc, gt_label, sigma):
     loc_loss = _smooth_l1_loss(pred_loc, gt_loc, in_weight.detach(), sigma)
     # Normalize by total number of negtive and positive rois.
     loc_loss /= ((gt_label >= 0).sum().float()) # ignore gt_label==-1 for rpn_loss
+    loc_loss += penalty*t.sum(in_weight)
     return loc_loss

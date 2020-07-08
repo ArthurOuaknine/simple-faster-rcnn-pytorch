@@ -23,12 +23,12 @@ def decom_resnet18():
         model = custom_resnet18(pretrained=False)
 
     # freeze top conv and bn layers
-    for p in model.conv1.parameters(): p.requires_grad = False
-    for p in model.layer1.parameters(): p.requires_grad = False
-    model.apply(set_bn_fix)
+    # for p in model.conv1.parameters(): p.requires_grad = False
+    # for p in model.layer1.parameters(): p.requires_grad = False
+    # model.apply(set_bn_fix)
 
     # resnet.layer0 to resnet.layer3 for extractor
-    features_extractor = nn.Sequential(model.conv1, model.bn1,model.relu,
+    features_extractor = nn.Sequential(model.conv1, model.bn1, model.leaky_relu,
                                        model.maxpool, model.layer1,
                                        model.layer2, model.layer3)
 
@@ -59,8 +59,10 @@ class FasterRCNNRESNET18(FasterRCNN):
                  n_fg_class=20,
                  # ratios=[0.5, 1, 2],
                  # anchor_scales=[8, 16, 32]
-                 ratios=[0.125, 0.25, 0.5, 1],
-                 anchor_scales=[4, 8, 16, 32]
+                 ratios=[0.125, 0.25, 0.5, 1, 2],
+                 anchor_scales=[0.125, 0.25, 0.5, 2, 4, 8, 16]
+                 # ratios=[0.01, 0.015, 0.02, 0.025, 0.03, 0.03125, 0.035, 0.125, 0.25, 0.5, 1, 2],
+                 # anchor_scales=[0.125, 0.25, 0.5, 2, 4, 8, 16]
                  ):
                  
         extractor, classifier = decom_resnet18()

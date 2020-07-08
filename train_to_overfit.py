@@ -53,7 +53,9 @@ def eval(seq_loader, faster_rcnn, signal_type, scale=1., test_num=10000):
     for n_seq, sequence_data in tqdm(enumerate(seq_loader)):
         seq_name, seq = sequence_data
         # Overfit an image
-        # seq = [seq[115]]
+        # seq = [seq[155]] # large
+        seq = [seq[115]] # medium
+        # seq = [seq[28]] # small
         path_to_frames = os.path.join(carrada, seq_name[0])
         frame_set = TestCarradaDataset(opt, seq, 'box', signal_type,
                                        path_to_frames)
@@ -135,7 +137,9 @@ def train(**kwargs):
         for n_seq, sequence_data in tqdm(enumerate(train_seqs_loader)):
             seq_name, seq = sequence_data
             # overfit an image
-            # seq = [seq[115]]
+            # seq = [seq[155]] # large
+            seq = [seq[115]] # medium
+            # seq = [seq[28]] # small
             path_to_frames = os.path.join(carrada, seq_name[0])
             train_frame_set = CarradaDataset(opt, seq, 'box', opt.signal_type,
                                              path_to_frames)
