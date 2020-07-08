@@ -54,7 +54,7 @@ def eval(seq_loader, faster_rcnn, signal_type, scale=1., test_num=10000):
         seq_name, seq = sequence_data
         # Overfit an image
         # seq = [seq[155]] # large
-        # seq = [seq[115]] # medium
+        seq = [seq[115]] # medium
         # seq = [seq[28]] # small
         path_to_frames = os.path.join(carrada, seq_name[0])
         frame_set = TestCarradaDataset(opt, seq, 'box', signal_type,
@@ -138,7 +138,7 @@ def train(**kwargs):
             seq_name, seq = sequence_data
             # overfit an image
             # seq = [seq[155]] # large
-            # seq = [seq[115]] # medium
+            seq = [seq[115]] # medium
             # seq = [seq[28]] # small
             path_to_frames = os.path.join(carrada, seq_name[0])
             train_frame_set = CarradaDataset(opt, seq, 'box', opt.signal_type,
