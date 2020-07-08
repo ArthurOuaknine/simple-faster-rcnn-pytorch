@@ -101,6 +101,7 @@ def train(**kwargs):
     val_set = train_set
     train_seqs = SequenceCarradaDataset(train_set)
     val_seqs = SequenceCarradaDataset(val_set)
+    # test_seqs = SequenceCarradaDataset(test_set)
 
     train_seqs_loader = data_.DataLoader(train_seqs, \
                                          batch_size=1, \
@@ -113,6 +114,14 @@ def train(**kwargs):
                                        shuffle=False,
                                        # pin_memory=True,
                                        num_workers=opt.num_workers)
+
+    """
+    test_seqs_loader = data_.DataLoader(test_seqs,
+                                        batch_size=1,
+                                        shuffle=False,
+                                        # pin_memory=True,
+                                        num_workers=opt.num_workers)
+    """
 
     # faster_rcnn = FasterRCNNVGG16(n_fg_class=3)
     # faster_rcnn = FasterRCNNRESNET101(n_fg_class=3)
@@ -214,8 +223,18 @@ def train(**kwargs):
                                                   str(trainer.get_meter_data()))
         print(log_info)
         if eval_result['map'] > best_map:
-            best_map = eval_result['map']
-            best_path = trainer.save(best_map=best_map)
+            """
+            test_result, test_best_iou = eval(test_seqs_loader, faster_rcnn, opt.signal_type,
+                                              test_num=opt.test_num)
+            writer.add_scalar('Test/mAP', test_result['map'],
+                              iteration)
+            writer.add_scalar('Test/Best_IoU', test_best_iou,
+                              iteration)
+            """
+            best_val_map = eval_result['map']
+            # best_test_map = test_result['map']
+            # best_path = trainer.save(best_val_map=best_val_map, best_test_map=best_test_map)
+            best_path = trainer.save(best_val_map=best_val_map)
 
         if (epoch + 1) % opt.lr_step == 0:
             scheduler.step()
