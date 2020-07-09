@@ -219,7 +219,7 @@ def train(**kwargs):
                               iteration)
             best_map = eval_result['map']
             best_test_map = test_result['map']
-            best_path = trainer.save(best_val_map=best_val_map, best_test_map=best_test_map)
+            best_path = trainer.save(best_val_map=best_map, best_test_map=best_test_map)
             # best_path = trainer.save(best_map=best_map)
 
         if (epoch + 1) % opt.lr_step == 0:
