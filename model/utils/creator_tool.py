@@ -108,6 +108,17 @@ class ProposalTargetCreator(object):
             pos_index = np.random.choice(
                 pos_index, size=pos_roi_per_this_image, replace=False)
 
+        # Duplicate if necessary (force positives)
+        if pos_roi_per_this_image < pos_roi_per_image:
+            nb_missing_pos = int(pos_roi_per_image - pos_roi_per_this_image)
+            duplicate_factor = nb_missing_pos/pos_roi_per_this_image
+            if duplicate_factor > 0.:
+                duplicates = np.repeat(pos_index, duplicate_factor)
+            else:
+                duplicates = np.repeat(pos_index[0], nb_missing_pos)
+            pos_index = np.concatenate([pos_index, duplicates])
+            pos_roi_per_this_image = pos_index.size
+
         # Select background RoIs as those within
         # [neg_iou_thresh_lo, neg_iou_thresh_hi).
         neg_index = np.where((max_iou < self.neg_iou_thresh_hi) &
@@ -237,6 +248,16 @@ class AnchorTargetCreator(object):
             disable_index = np.random.choice(
                 pos_index, size=(len(pos_index) - n_pos), replace=False)
             label[disable_index] = -1
+        """
+        if len(pos_index) < n_pos:
+            nb_missing_pos = n_pos - len(pos_index)
+            duplicate_factor = nb_missing_pos/len(pos_index)
+            if duplicate_factor > 0.:
+                duplicates = np.repeat(pos_index, duplicate_factor)
+            else:
+                duplicates = np.repeat(pos_index[0], nb_missing_pos)
+            pos_index = np.concatenate([pos_index, duplicates])
+        """ 
 
         # subsample negative labels if we have too many
         n_neg = self.n_sample - np.sum(label == 1)
@@ -245,7 +266,6 @@ class AnchorTargetCreator(object):
             disable_index = np.random.choice(
                 neg_index, size=(len(neg_index) - n_neg), replace=False)
             label[disable_index] = -1
-
         return argmax_ious, label
 
     def _calc_ious(self, anchor, bbox, inside_index):

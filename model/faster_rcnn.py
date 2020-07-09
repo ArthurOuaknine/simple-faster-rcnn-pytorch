@@ -150,10 +150,13 @@ class FasterRCNN(nn.Module):
                 preset to use.
 
         """
-        #FLAG: initial nms_thresh = 0.3
+        # FLAG: initial nms_thresh = 0.3
+        # FLAG: initial score_thresh = 0.7
         if preset == 'visualize':
             self.nms_thresh = 0.3
-            self.score_thresh = 0.7
+            self.score_thresh = 0.5
+        # FLAG: initial nms_thresh = 0.3
+        # FLAG: initial score_thresh = 0.05
         elif preset == 'evaluate':
             self.nms_thresh = 0.3
             self.score_thresh = 0.05

@@ -45,7 +45,7 @@ def normalize(data):
     return torch.div(torch.sub(data, min_value), torch.sub(max_value, min_value))
 
 
-def eval(seq_loader, faster_rcnn, signal_type, scale=1., test_num=10000):
+def eval(seq_loader, faster_rcnn, signal_type, scale=1., test_num=10000, stop=False):
     carrada = download('Carrada')
     pred_bboxes, pred_labels, pred_scores = list(), list(), list()
     gt_bboxes, gt_labels, gt_difficults = list(), list(), list()
@@ -85,6 +85,8 @@ def eval(seq_loader, faster_rcnn, signal_type, scale=1., test_num=10000):
         best_iou = ious.max()
     except ValueError:
         best_iou = 0
+    if stop:
+        import ipdb; ipdb.set_trace()
     # print('Best IoU in validation: {}'.format(ious.max()))
     return result, best_iou
 
@@ -162,7 +164,8 @@ def train(**kwargs):
                 scale = at.scalar(scale)
                 img, bbox, label = img.cuda().float(), bbox_.cuda(), label_.cuda()
                 img = normalize(img)
-                if opt.debug_step and (iteration+1) % opt.debug_step == 0:
+
+                if opt.debug_step and (epoch+1) % opt.debug_step == 0:
                     trainer.train_step(img, bbox, label, scale, stop=True)
                 else:
                     trainer.train_step(img, bbox, label, scale)
@@ -208,9 +211,13 @@ def train(**kwargs):
                                       iteration)
                     writer.add_scalar('Train/Best_IoU', train_best_iou,
                                       iteration)
-                                                 
+                if opt.debug_step and (epoch+1) % opt.debug_step == 0:
+                    _, _ = eval(train_seqs_loader, faster_rcnn,
+                                opt.signal_type, stop=True)
+
         eval_result, best_iou = eval(val_seqs_loader, faster_rcnn, opt.signal_type,
                                      test_num=opt.test_num)
+        
         writer.add_scalar('Validation/mAP', eval_result['map'],
                           iteration)
         writer.add_scalar('Validation/Best_IoU', best_iou,

@@ -51,12 +51,14 @@ class FasterRCNNTrainer(nn.Module):
 
         # target creator create gt_bbox gt_label etc as training targets.
         # FLAG: add params
+        # Initail best: pos 0.2, neg 0.1
         self.anchor_target_creator = AnchorTargetCreator(pos_ratio=0.5,
-                                                         pos_iou_thresh=0.2,
-                                                         neg_iou_thresh=0.1)
+                                                         pos_iou_thresh=0.7,
+                                                         neg_iou_thresh=0.3)
+        # Initial best: pos 0.2, neg 0.2
         self.proposal_target_creator = ProposalTargetCreator(pos_ratio=0.5,
-                                                             pos_iou_thresh=0.2,
-                                                             neg_iou_thresh_hi=0.2)
+                                                             pos_iou_thresh=0.5,
+                                                             neg_iou_thresh_hi=0.5)
 
         self.loc_normalize_mean = faster_rcnn.loc_normalize_mean
         self.loc_normalize_std = faster_rcnn.loc_normalize_std
@@ -217,8 +219,8 @@ class FasterRCNNTrainer(nn.Module):
 
         t.save(save_dict, os.path.join(save_path, opt.model_name + '.pt'))
         self.vis.save([self.vis.env])
-        with open(os.path.join(save_path, 'results.json'), 'w') as fp:
-            json.dump(save_dict, fp)
+        with open(os.path.join(save_path, 'infos.json'), 'w') as fp:
+            json.dump(save_dict['other_info'], fp)
         return save_path
 
     def load(self, path, load_optimizer=True, parse_opt=False, ):
