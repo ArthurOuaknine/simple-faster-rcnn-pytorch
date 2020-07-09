@@ -1,5 +1,6 @@
 from __future__ import  absolute_import
 import os
+import json
 from collections import namedtuple
 import time
 from torch.nn import functional as F
@@ -216,6 +217,8 @@ class FasterRCNNTrainer(nn.Module):
 
         t.save(save_dict, os.path.join(save_path, opt.model_name + '.pt'))
         self.vis.save([self.vis.env])
+        with open(os.path.join(save_path, 'results.json'), 'w') as fp:
+            json.dump(save_dict, fp)
         return save_path
 
     def load(self, path, load_optimizer=True, parse_opt=False, ):

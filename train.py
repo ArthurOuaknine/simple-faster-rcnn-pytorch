@@ -19,6 +19,7 @@ from trainer import FasterRCNNTrainer
 from utils import array_tool as at
 from utils.vis_tool import visdom_bbox
 from utils.eval_tool import eval_detection_voc
+from model.utils.bbox_tools import bbox_iou
 
 import torch
 from torch.optim.lr_scheduler import ExponentialLR
@@ -73,7 +74,13 @@ def eval(seq_loader, faster_rcnn, signal_type, test_num=10000):
     result = eval_detection_voc(pred_bboxes, pred_labels, pred_scores,
                                 gt_bboxes, gt_labels, gt_difficults,
                                 use_07_metric=True)
-    return result
+    ious = bbox_iou(gt_bboxes[0], pred_bboxes[0])
+    try:
+        best_iou = ious.max()
+    except ValueError:
+        best_iou = 0
+
+    return result, best_iou
 
 
 def train(**kwargs):
@@ -116,13 +123,9 @@ def train(**kwargs):
         trainer.load(opt.load_path)
         print('load pretrained model from %s' % opt.load_path)
 
-    # FLAG: vis
     writer_path = os.path.join(opt.logs_path, opt.model_name)
     os.makedirs(writer_path, exist_ok=True)
     writer = SummaryWriter(writer_path)
-    # vizualizer = TensorboardVisualizer(writer)
-    # FLAG: vis. Important ?
-    # trainer.vis.text(dataset.label_names, win='labels')
     iteration = 0
     best_map = 0
     lr_ = opt.lr
@@ -145,15 +148,16 @@ def train(**kwargs):
                 scale = at.scalar(scale)
                 img, bbox, label = img.cuda().float(), bbox_.cuda(), label_.cuda()
                 img = normalize(img)
-                trainer.train_step(img, bbox, label, scale)
+
+                if opt.debug_step and (iteration+1) % opt.debug_step == 0:
+                    trainer.train_step(img, bbox, label, scale, stop=True)
+                else:
+                    trainer.train_step(img, bbox, label, scale)
 
                 if (iteration + 1) % opt.plot_every == 0:
                     if os.path.exists(opt.debug_file):
                         ipdb.set_trace()
 
-                    # plot loss
-                    # FLAG: vis
-                    # trainer.vis.plot_many(trainer.get_meter_data())
                     train_results = trainer.get_meter_data()
                     writer.add_scalar('Losses/rpn_loc', train_results['rpn_loc_loss'],
                                       iteration)
@@ -167,14 +171,10 @@ def train(**kwargs):
                                       iteration)
 
                 if (iteration + 1) % opt.img_every == 0:
-                    # plot groud truth bboxes
-                    # ori_img_ = carrada_inverse_normalize(at.tonumpy(img[0]), signal_type)
                     ori_img_ = at.tonumpy(img[0])
-                    # FLAG: vis
                     gt_img = visdom_bbox(ori_img_,
                                          at.tonumpy(bbox_[0]),
                                          at.tonumpy(label_[0]))
-                    # trainer.vis.img('gt_img', gt_img)
                     gt_img_grid = make_grid(torch.from_numpy(gt_img))
                     writer.add_image('Ground_truth_img', gt_img_grid, iteration)
 
@@ -186,24 +186,23 @@ def train(**kwargs):
                                            at.tonumpy(_bboxes[0]),
                                            at.tonumpy(_labels[0]).reshape(-1),
                                            at.tonumpy(_scores[0]))
-                    # trainer.vis.img('pred_img', pred_img)
                     pred_img_grid = make_grid(torch.from_numpy(pred_img))
                     writer.add_image('Predicted_img', pred_img_grid, iteration)
 
-                    # FLAG: vis
-                    # rpn confusion matrix(meter)
-                    # trainer.vis.text(str(trainer.rpn_cm.value().tolist()), win='rpn_cm')
-                    
-                    # FLAG: vis
-                    # roi confusion matrix
-                    # trainer.vis.img('roi_cm', at.totensor(trainer.roi_cm.conf, False).float())
+                    if opt.train_eval and (iteration + 1) % opt.train_eval == 0:
+                        train_eval_result, train_best_iou = eval(train_seqs_loader, faster_rcnn,
+                                                                 opt.signal_type)
+                        writer.add_scalar('Train/mAP', train_eval_result['map'],
+                                          iteration)
+                        writer.add_scalar('Train/Best_IoU', train_best_iou,
+                                          iteration)
 
-        # FLAG: eval/test
-        eval_result = eval(val_seqs_loader, faster_rcnn, opt.signal_type, test_num=opt.test_num)
-        # trainer.vis.plot('test_map', eval_result['map'])
+        eval_result, best_val_iou = eval(val_seqs_loader, faster_rcnn, opt.signal_type,
+                                         test_num=opt.test_num)
         writer.add_scalar('Validation/mAP', eval_result['map'],
                           iteration)
-        # lr_ = trainer.faster_rcnn.optimizer.param_groups[0]['lr']
+        writer.add_scalar('Validation/Best_IoU', best_val_iou,
+                          iteration)
         lr_ = scheduler.get_lr()[0]
         writer.add_scalar('learning_rate', lr_, iteration)
 
@@ -211,22 +210,17 @@ def train(**kwargs):
                                                   str(eval_result['map']),
                                                   str(trainer.get_meter_data()))
         print(log_info)
-        # FLAG: vis
-        # trainer.vis.log(log_info)
-
-        # FLAG: eval/test
         if eval_result['map'] > best_map:
+            test_result, test_best_iou = eval(test_seqs_loader, faster_rcnn, opt.signal_type,
+                                              test_num=opt.test_num)
+            writer.add_scalar('Test/mAP', test_result['map'],
+                              iteration)
+            writer.add_scalar('Test/Best_IoU', test_best_iou,
+                              iteration)
             best_map = eval_result['map']
-            best_path = trainer.save(best_map=best_map)
-
-        # FLAG: TODO vis on eval
-
-        # if epoch == 9 and best_map != 0:
-            # trainer.load(best_path)
-            # trainer.faster_rcnn.scale_lr(opt.lr_decay)
-            # lr_ = lr_ * opt.lr_decay
-        # if epoch == 13:
-            # break
+            best_test_map = test_result['map']
+            best_path = trainer.save(best_val_map=best_val_map, best_test_map=best_test_map)
+            # best_path = trainer.save(best_map=best_map)
 
         if (epoch + 1) % opt.lr_step == 0:
             scheduler.step()
