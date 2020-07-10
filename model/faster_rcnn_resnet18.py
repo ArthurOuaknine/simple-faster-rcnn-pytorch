@@ -57,6 +57,7 @@ class FasterRCNNRESNET18(FasterRCNN):
 
     def __init__(self,
                  n_fg_class=20,
+                 signal_type='range_doppler',
                  # ratios=[0.5, 1, 2],
                  # anchor_scales=[8, 16, 32]
                  ratios=[0.125, 0.25, 0.5, 1, 2, 4, 8],
@@ -67,11 +68,21 @@ class FasterRCNNRESNET18(FasterRCNN):
                  
         extractor, classifier = decom_resnet18()
 
+        if signal_type == 'range_doppler':
+            ratios = [0.25, 0.5, 1, 2, 4]
+            anchor_scales = [0.125, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
+        elif signal_type == 'range_angle':
+            ratios = [0.5, 1, 2, 4, 8, 16]
+            anchor_scales = [0.125, 0.25, 0.5, 1, 1.75, 2.25, 3, 4]
+        else:
+            raise ValueError('Signal type {} not supported !'.format(signal_type))
+
         rpn = RegionProposalNetwork(
             256, 512,
             ratios=ratios,
             anchor_scales=anchor_scales,
             feat_stride=self.feat_stride,
+            proposal_creator_params={'min_size': 1},
         )
 
         head = RESNET18RoIHead(

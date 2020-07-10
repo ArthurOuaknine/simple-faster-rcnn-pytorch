@@ -112,7 +112,7 @@ class ProposalTargetCreator(object):
         if pos_roi_per_this_image < pos_roi_per_image:
             nb_missing_pos = int(pos_roi_per_image - pos_roi_per_this_image)
             duplicate_factor = nb_missing_pos/pos_roi_per_this_image
-            if duplicate_factor > 0.:
+            if duplicate_factor >= 1.:
                 duplicates = np.repeat(pos_index, duplicate_factor)
             else:
                 duplicates = np.repeat(pos_index[0], nb_missing_pos)
@@ -216,12 +216,24 @@ class AnchorTargetCreator(object):
         argmax_ious, label = self._create_label(
             inside_index, anchor, bbox)
 
+        """
+        actual_pos_ratio = len(label[label == 1]) / len(label[label >= 0])
+        if actual_pos_ratio < self.pos_ratio:
+            inside_index, anchor, argmax_ious, label = self._restore_pos_ratio(inside_index,
+                                                                               anchor,
+                                                                               argmax_ious,
+                                                                               label)
+        """
         # compute bounding box regression targets
         loc = bbox2loc(anchor, bbox[argmax_ious])
 
         # map up to original set of anchors
         label = _unmap(label, n_anchor, inside_index, fill=-1)
         loc = _unmap(loc, n_anchor, inside_index, fill=0)
+
+        actual_pos_ratio = len(label[label == 1]) / len(label[label >= 0])
+        if actual_pos_ratio < self.pos_ratio:
+            loc, label = self._restore_pos_ratio(loc, label)
 
         return loc, label
 
@@ -248,16 +260,6 @@ class AnchorTargetCreator(object):
             disable_index = np.random.choice(
                 pos_index, size=(len(pos_index) - n_pos), replace=False)
             label[disable_index] = -1
-        """
-        if len(pos_index) < n_pos:
-            nb_missing_pos = n_pos - len(pos_index)
-            duplicate_factor = nb_missing_pos/len(pos_index)
-            if duplicate_factor > 0.:
-                duplicates = np.repeat(pos_index, duplicate_factor)
-            else:
-                duplicates = np.repeat(pos_index[0], nb_missing_pos)
-            pos_index = np.concatenate([pos_index, duplicates])
-        """ 
 
         # subsample negative labels if we have too many
         n_neg = self.n_sample - np.sum(label == 1)
@@ -279,6 +281,65 @@ class AnchorTargetCreator(object):
 
         return argmax_ious, max_ious, gt_argmax_ious
 
+    """ 
+    def _restore_pos_ratio(self, inside_indexes, anchors, argmax_ious, labels):
+        nb_labels = len(labels[labels >= 0])
+        nb_pos = self.pos_ratio*nb_labels
+        nb_neg = nb_labels - nb_pos
+
+        pos_indexes = inside_indexes[labels == 1]
+        nb_missing_pos = nb_pos - len(pos_indexes)
+        duplicate_factor = nb_missing_pos/len(pos_indexes)
+        if duplicate_factor >= 1.:
+            duplicates = np.repeat(pos_indexes, duplicate_factor)
+        else:
+            duplicates = np.repeat(pos_indexes[0], nb_missing_pos)
+
+        if len(duplicates) < nb_missing_pos:
+            nb_still_missing = nb_missing_pos - len(duplicates)
+            new_duplicates = np.repeat(pos_indexes[0], nb_still_missing)
+            duplicates = np.concatenate([duplicates, new_duplicates])
+        # pos_indexes = np.concatenate([pos_indexes, duplicates])
+        neg_indexes = inside_indexes[labels == 0]
+        disable_indexes = np.random.choice(neg_indexes[neg_indexes < len(inside_indexes)],
+                                           size=(int(len(neg_indexes) - nb_neg)),
+                                           replace=False)
+
+        inside_indexes[disable_indexes] = inside_indexes[duplicates]
+        anchors[disable_indexes] = anchors[duplicates]
+        argmax_ious[disable_indexes] = argmax_ious[duplicates]
+        labels[disable_indexes] = 1
+        return inside_indexes, anchors, argmax_ious, labels
+    """
+
+    def _restore_pos_ratio(self, locs, labels):
+        nb_labels = len(labels[labels >= 0])
+        nb_pos = self.pos_ratio*nb_labels
+        nb_neg = nb_labels - nb_pos
+        nb_actual_pos = len(labels[labels == 1])
+        nb_actual_neg = len(labels[labels == 0])
+
+        pos_indexes = np.where(labels == 1)[0]
+        nb_missing_pos = nb_pos - nb_actual_pos
+        duplicate_factor = nb_missing_pos/nb_actual_pos
+        if duplicate_factor >= 1.:
+            duplicates = np.repeat(pos_indexes, duplicate_factor)
+        else:
+            duplicates = np.repeat(pos_indexes[0], nb_missing_pos)
+
+        if len(duplicates) < nb_missing_pos:
+            nb_still_missing = nb_missing_pos - len(duplicates)
+            new_duplicates = np.repeat(pos_indexes[0], nb_still_missing)
+            duplicates = np.concatenate([duplicates, new_duplicates])
+        # pos_indexes = np.concatenate([pos_indexes, duplicates])
+
+        neg_indexes = np.where(labels == 0)[0]
+        disable_indexes = np.random.choice(neg_indexes,
+                                           size=(int(nb_actual_neg - nb_neg)),
+                                           replace=False)
+        locs[disable_indexes] = locs[duplicates]
+        labels[disable_indexes] = 1
+        return locs, labels
 
 def _unmap(data, count, index, fill=0):
     # Unmap a subset of item (data) back to the original set of items (of
@@ -434,7 +495,6 @@ class ProposalCreator:
         if n_pre_nms > 0:
             order = order[:n_pre_nms]
         roi = roi[order, :]
-
         # Apply nms (e.g. threshold = 0.7).
         # Take after_nms_topN (e.g. 300).
 

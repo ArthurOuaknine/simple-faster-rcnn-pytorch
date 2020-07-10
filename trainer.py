@@ -168,7 +168,8 @@ class FasterRCNNTrainer(nn.Module):
 
         # rpn_cls_penalty = _add_cls_penalty(rpn_score, gt_rpn_label.cuda(), self.rpn_pen)
         # roi_cls_penalty = _add_cls_penalty(rpn_score, gt_rpn_label.cuda(), self.roi_pen)
-        losses = [rpn_loc_loss, rpn_cls_loss, roi_loc_loss, roi_cls_loss]
+        losses = [self.rpn_pen*rpn_loc_loss, rpn_cls_loss,
+                  roi_loc_loss, self.rpn_pen*roi_cls_loss]
         losses = losses + [sum(losses)]
         if stop:
             import ipdb; ipdb.set_trace()

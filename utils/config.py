@@ -61,8 +61,8 @@ class Config:
     logs_path = os.path.join(os.environ['LOGSHOME'], 'carrada', 'baseline', 'detection')
     model_name = 'test'
 
-    rpn_pen = 0.
-    roi_pen = 0.
+    rpn_pen = 1.
+    roi_pen = 1.
 
     def _parse(self, kwargs):
         state_dict = self._state_dict()
